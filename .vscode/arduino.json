@@ -1,6 +1,5 @@
 {
-    "configuration": "cpu=atmega328",
-    "board": "arduino:avr:nano",
+    "board": "arduino:mbed_nano:nanorp2040connect",
     "port": "COM5",
-    "sketch": "arduino.ino"
+    "sketch": "microfone.ino"
 }
