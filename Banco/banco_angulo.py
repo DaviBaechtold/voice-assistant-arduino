@@ -1,10 +1,10 @@
 import serial
-import struct
+import struct # Decodifica dados binários recebidos (6 floats + 1 marcador)
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
-from collections import deque
+from collections import deque # Fila para armazenar histórico de ângulos
 import time
 import math
 
@@ -22,18 +22,14 @@ class KalmanFilter:
         priori_error_estimate = self.posteri_error_estimate + self.process_variance
         
         # Atualização
-        blending_factor = priori_error_estimate / (priori_error_estimate + self.measurement_variance)
+        blending_factor = priori_error_estimate / (priori_error_estimate + self.measurement_variance) # Fator de mistura
         self.posteri_estimate = priori_estimate + blending_factor * (measurement - priori_estimate)
         self.posteri_error_estimate = (1 - blending_factor) * priori_error_estimate
         
         return self.posteri_estimate
 
 class IMUProcessor:
-    def __init__(self, port='COM3', baudrate=1000000):
-        """
-        Inicializa o processador IMU
-        port: Porta serial do Arduino (ex: 'COM3' no Windows, '/dev/ttyACM0' no Linux)
-        """
+    def __init__(self, port='COM5', baudrate=1000000):
         self.port = port
         self.baudrate = baudrate
         self.serial_conn = None
@@ -81,10 +77,10 @@ class IMUProcessor:
             return None
         
         try:
-            # Limpa buffer se houver dados antigos
+            # Limpa o buffer se estiver muito cheio
             if self.serial_conn.in_waiting > 280:  # ~10 pacotes
                 self.serial_conn.reset_input_buffer()
-                print("Buffer limpo - muitos dados acumulados")
+                
             
             # Lê um pacote completo (28 bytes: 6 floats + 1 uint32)
             data = self.serial_conn.read(28)
@@ -103,7 +99,7 @@ class IMUProcessor:
                     if abs(old_ax - self.ax) < 0.001 and abs(old_ay - self.ay) < 0.001 and abs(old_az - self.az) < 0.001:
                         self.stuck_count = getattr(self, 'stuck_count', 0) + 1
                         if self.stuck_count > 50:  # ~0.5 segundos
-                            print(f"\n⚠️  AVISO: Dados parecem travados há {self.stuck_count} leituras!")
+                            print(f"\n  AVISO: Dados parecem travados há {self.stuck_count} leituras!")
                             print(f"   Aceleração fixa em: ({self.ax:.3f}, {self.ay:.3f}, {self.az:.3f})")
                             self.stuck_count = 0
                     else:
@@ -145,14 +141,45 @@ class IMUProcessor:
     
     def calculate_angles(self):
         """Calcula pitch e roll a partir dos dados do acelerômetro"""
-        # Converte aceleração em ângulos (em radianos)
-        pitch_rad = math.atan2(self.ax, math.sqrt(self.ay**2 + self.az**2))
-        roll_rad = math.atan2(self.ay, self.az)
         
-        # Converte para graus
-        raw_pitch = math.degrees(pitch_rad)
-        raw_roll = math.degrees(roll_rad)
+        # Normaliza os valores do acelerômetro
+        magnitude = math.sqrt(self.ax**2 + self.ay**2 + self.az**2)
+        if magnitude == 0:
+            return self.current_pitch, self.current_roll
         
+        ax_norm = self.ax / magnitude
+        ay_norm = self.ay / magnitude
+        az_norm = self.az / magnitude
+        
+        # Cálculo mais robusto do pitch
+        # Limita ax_norm para evitar erros de domínio no asin
+        ax_clamped = max(-1.0, min(1.0, ax_norm))
+        raw_pitch = math.degrees(math.asin(ax_clamped))
+        
+        # Cálculo mais robusto do roll
+        # Evita divisão por zero e trata o caso quando az é negativo
+        if abs(az_norm) < 0.001:  # Evita divisão por zero quando az ≈ 0
+            # Quando az ≈ 0, use apenas ay para determinar o roll
+            if ay_norm > 0:
+                raw_roll = 90.0
+            else:
+                raw_roll = -90.0
+        else:
+            raw_roll = math.degrees(math.atan2(ay_norm, abs(az_norm)))
+            
+            # Ajusta o sinal do roll baseado na orientação de az
+            if az_norm < 0:  # Arduino está invertido
+                if ay_norm >= 0:
+                    raw_roll = 180.0 - raw_roll
+                else:
+                    raw_roll = -180.0 - raw_roll
+    
+        # Mantém roll no intervalo [-180, 180]
+        while raw_roll > 180:
+            raw_roll -= 360
+        while raw_roll < -180:
+            raw_roll += 360
+    
         # Aplica filtro Kalman
         filtered_pitch = self.pitch_filter.update(raw_pitch)
         filtered_roll = self.roll_filter.update(raw_roll)
@@ -322,7 +349,6 @@ class IMUVisualizer:
             self.ax_raw.legend()
 
 def main():
-    # Configuração da porta serial - AJUSTE CONFORME SEU SISTEMA
     # Windows: 'COM3', 'COM4', etc.
     # Linux/Mac: '/dev/ttyACM0', '/dev/ttyUSB0', etc.
     
@@ -365,7 +391,7 @@ def main():
                 print(f"          Magnitude: {magnitude:.3f}g")
                 
                 if abs(magnitude - 1.0) > 0.5:
-                    print("          ⚠️  Magnitude anormal - possível problema no sensor")
+                    print(" Magnitude anormal - possível problema no sensor")
                 
                 time.sleep(0.1)
             else:
@@ -400,7 +426,7 @@ def main():
                 if current_values == last_values:
                     no_change_count += 1
                     if no_change_count > 100:  # ~1 segundo
-                        print(f"\n⚠️  PROBLEMA: Valores não mudam há {no_change_count} leituras!")
+                        print(f"\n  PROBLEMA: Valores não mudam há {no_change_count} leituras!")
                         print("   Tente mover o Arduino ou verificar a conexão")
                         no_change_count = 0
                 else:
