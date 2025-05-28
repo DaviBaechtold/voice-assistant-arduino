@@ -304,7 +304,7 @@ Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
 Dav's - [davicampos2002@gmail.com](davicampos2002@gmail.com)
 
-Link do Projeto: [https://github.com/DaviBaechtold/agora-vai](https://github.com/DaviBaechtold/agora-vai)
+Link do Projeto: [([https://github.com/DaviBaechtold/voice-assistant-arduino](https://github.com/DaviBaechtold/voice-assistant-arduino))]
 
 ---
 
