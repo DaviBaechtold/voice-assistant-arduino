@@ -1,0 +1,9 @@
+# Audio processing
+numpy>=1.21.0
+pyaudio>=0.2.11
+
+# Speech recognition
+SpeechRecognition>=3.10.0
+
+# Text-to-speech
+pyttsx3>=2.90

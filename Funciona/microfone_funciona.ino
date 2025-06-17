@@ -25,7 +25,7 @@ volatile bool audioReady = false;
 
 // Objetos WiFi
 WiFiUDP udp;
-int localPort = 2390;
+int localPort = 2390; // Porta específica do motorista
 
 // Configurações PDM
 void setup() {
@@ -33,7 +33,7 @@ void setup() {
   while (!Serial) delay(10);
   
   Serial.println("=== Arduino Audio Capture System ===");
-  Serial.println("Dispositivo: Motorista");
+  Serial.println("Dispositivo: MOTORISTA");
   
   // Inicializar WiFi
   if (WiFi.status() == WL_NO_MODULE) {
@@ -85,11 +85,12 @@ void loop() {
     
     // Mostrar status
     static unsigned long lastStatus = 0;
-    if (millis() - lastStatus > 1000) {
-      Serial.print("Enviando áudio... Samples: ");
+    if (millis() - lastStatus > 5000) { // A cada 5 segundos
+      Serial.print("[MOTORISTA] Enviando áudio... Samples: ");
       Serial.print(samplesRead);
       Serial.print(" | WiFi: ");
-      Serial.println(WiFi.RSSI());
+      Serial.print(WiFi.RSSI());
+      Serial.println(" dBm");
       lastStatus = millis();
     }
   }
@@ -131,7 +132,7 @@ void sendAudioData() {
   } packet_header;
   
   packet_header.timestamp = millis();
-  packet_header.device_id = 1; // ID do motorista
+  packet_header.device_id = 1; // ID do MOTORISTA
   packet_header.sample_rate = SAMPLE_RATE;
   packet_header.samples_count = samplesRead;
   packet_header.checksum = calculateChecksum(audioBuffer, samplesRead);
@@ -177,11 +178,12 @@ uint16_t calculateChecksum(short* data, int count) {
 
 // Função para debug - mostrar configurações
 void printConfig() {
-  Serial.println("\n=== Configurações ===");
+  Serial.println("\n=== Configurações MOTORISTA ===");
   Serial.print("SSID: "); Serial.println(ssid);
   Serial.print("IP Local: "); Serial.println(WiFi.localIP());
   Serial.print("Host: "); Serial.print(host_ip); Serial.print(":"); Serial.println(host_port);
   Serial.print("Sample Rate: "); Serial.println(SAMPLE_RATE);
   Serial.print("Buffer Size: "); Serial.println(BUFFER_SIZE);
+  Serial.print("Device ID: 1 (MOTORISTA)");
   Serial.println("=====================\n");
 }
